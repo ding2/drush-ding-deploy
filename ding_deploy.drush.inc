@@ -167,7 +167,7 @@ function drush_ding_deploy_setup() {
     drush_log('Created build dir.');
   }
 
-  if (!drush_shell_exec("wget -O %s %s", $build_path . '/bootstrap.make', $bootstrap)) {
+  if (!drush_shell_exec("wget --no-check-certificate -O %s %s", $build_path . '/bootstrap.make', $bootstrap)) {
     // Wget creates the file even if failing.
     unlink($build_path . '/bootstrap.make');
     return drush_set_error('ERROR_DOWNLOADING_BOOTSTRAP');
