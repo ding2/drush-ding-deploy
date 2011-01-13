@@ -20,6 +20,9 @@ $aliases['prod'] = array(
   'build-path' => '/home/deploy/build/sitename', // Directory for builds
   'remote-host' => 'host.example.com',
   'remote-user' => 'deploy',
+  'post-updb' => array(
+    'status', // Drush commands to run post updb.
+  ),
   'path-aliases' => array(
     '%drush' => '/usr/local/lib/drush',
     '%drush-script' => '/usr/local/lib/drush/drush',
@@ -49,7 +52,15 @@ file, installs Drupal to the root path if it doesn't exists (unless
 overridden with --no-core), and creates a symlink in the profiles
 directory to the build directory (unless overridden by --no-symlink).
 
-drush @prod ding-deploy
+drush @prod ding-deploy --code-only
 
 Deploys to the site. Runs the bootstrap make file and symlinks the new
-build into the site.
+build into the site. The --code-only is needed when there isn't a
+running site yet.
+
+drush @prod ding-deploy
+
+Deploys, sets the site offline, makes a database dump and moves the
+new build into place. Then it runs updb and additional commands before
+setting the site online again. If any of this fails, the entire
+deployment is rolled back.

@@ -47,6 +47,11 @@ function ding_deploy_drush_command() {
     'options' => array(
       'env' => 'The environment that is build, for instance: "staging"',
       'build-path' => 'Full path to build directory',
+      'no-offline' => "Don't set site offline",
+      'no-dump' => "Don't dump database",
+      'no-updb' => "Don't run database updates",
+      'no-post-updb' => "Don't run post update commands",
+      'code-only' => "Alias for --no-offline --no-dump --no-updb --no-post-updb. Useful for first deployment and when you know there's no need for a full deployment",
     ),
     'examples' => array(
       'drush @staging --build-path=/home/deploy/build ding-deploy' => 'Deploy to the staging server.',
@@ -208,7 +213,6 @@ function drush_ding_deploy_setup() {
 
   if (!drush_get_option('no-symlink', FALSE)) {
     if (!file_exists($root . '/profile/' . $profile)) {
-      drush_print($build_path . '/' . $profile . '-latest' . ' - ' . $root . '/profile/' . $profile);
       symlink($build_path . '/' . $profile . '-latest', $root . '/profiles/' . $profile);
       drush_log('Created profile symlink.');
     }
@@ -234,6 +238,13 @@ function drush_ding_deploy_validate() {
  */
 function drush_ding_deploy() {
   drush_set_context('DING_DEPLOY_STAGE', 'init');
+  if (drush_get_option('code-only', FALSE)) {
+    drush_set_option('no-offline', TRUE);
+    drush_set_option('no-dump', TRUE);
+    drush_set_option('no-updb', TRUE);
+    drush_set_option('no-post-updb', TRUE);
+  }
+
   $profile = drush_get_option('profile-name', 'ding');
   $build_path = drush_get_option('build-path');
   $env = drush_get_option('env');
@@ -252,9 +263,11 @@ function drush_ding_deploy() {
   $res = drush_backend_invoke_args('make', $options);
   if ($res['error_status'] == 0) {
     drush_set_context('DING_DEPLOY_STAGE', 'offline');
-    $res2 = drush_backend_invoke('vset site_offline 1');
-    if (!$res2 || $res2['error_status'] != 0) {
-      return FALSE;
+    if (!drush_get_option('no-offline', FALSE)) {
+      $res2 = drush_backend_invoke('vset site_offline 1');
+      if (!$res2 || $res2['error_status'] != 0) {
+        return FALSE;
+      }
     }
 
     drush_set_context('DING_DEPLOY_STAGE', 'link-shuffle');
@@ -267,34 +280,45 @@ function drush_ding_deploy() {
     symlink($build_dir . '/profiles/' . $profile, $env . '-latest');
 
     drush_set_context('DING_DEPLOY_STAGE', 'dbdump');
-    drush_set_context('DING_DEPLOY_DBDUMP', $dump_file);
-    $res2 = drush_backend_invoke('sql-dump --result-file=' . $dump_file);
-    if (!$res2 || $res2['error_status'] != 0) {
-      return FALSE;
-    }
-
-    drush_set_context('DING_DEPLOY_STAGE', 'updb');
-    $res2 = drush_backend_invoke('updb');
-    if (!$res2 || $res2['error_status'] != 0) {
-      return FALSE;
-    }
-
-    drush_set_context('DING_DEPLOY_STAGE', 'post-updb');
-    $post_updb = drush_get_option('post-updb', array());
-    foreach ($post_updb as $command) {
-      $res2 = drush_backend_invoke($command);
+    if (!drush_get_option('no-dump', FALSE)) {
+      drush_set_context('DING_DEPLOY_DBDUMP', $dump_file);
+      $res2 = drush_backend_invoke('sql-dump --result-file=' . $dump_file);
       if (!$res2 || $res2['error_status'] != 0) {
         return FALSE;
       }
     }
 
-    drush_set_context('DING_DEPLOY_STAGE', 'online');
-    $res2 = drush_backend_invoke('vset site_offline 0');
-    if (!$res2 || $res2['error_status'] != 0) {
-      return FALSE;
+    drush_set_context('DING_DEPLOY_STAGE', 'updb');
+    if (!drush_get_option('no-updb', FALSE)) {
+      $res2 = drush_backend_invoke('updb');
+      if (!$res2 || $res2['error_status'] != 0) {
+        return FALSE;
+      }
     }
 
-    drush_op('unlink', $env . '-previous-bak');
+    drush_set_context('DING_DEPLOY_STAGE', 'post-updb');
+    if (!drush_get_option('no-post-updb')) {
+      $post_updb = drush_get_option('post-updb', array());
+      foreach ($post_updb as $command) {
+        $res2 = drush_backend_invoke($command);
+        if (!$res2 || $res2['error_status'] != 0) {
+          return FALSE;
+        }
+      }
+    }
+
+    drush_set_context('DING_DEPLOY_STAGE', 'online');
+    if (!drush_get_option('no-offline', FALSE)) {
+      $res2 = drush_backend_invoke('vset site_offline 0');
+      if (!$res2 || $res2['error_status'] != 0) {
+        return FALSE;
+      }
+    }
+
+    if (file_exists($dump_file)) {
+      @unlink($dump_file);
+    }
+    @drush_op('unlink', $env . '-previous-bak');
   }
   else {
     drush_set_error('MAKE_FAILED');
@@ -316,23 +340,27 @@ function drush_ding_deploy_rollback() {
     case 'post-updb':
       // Post update command failed, rollback everything.
     case 'updb':
-        // Database updates failed, we must restore from backup.
-      $file = drush_get_context('DING_DEPLOY_DBDUMP', '');
-      if (!$file or !file_exists($file)) {
-        drush_set_error('NO_DBDUMP_FILE');
-      }
-      else {
-        $res = drush_backend_invoke('sql-connect');
-        if ($res && $file) {
-          $mysql = $res['output'];
-          drush_op_system($mysql . ' <' . $dump_file);
+      // Database updates failed, we must restore from backup.
+      if (!drush_get_option('no-dump', FALSE)) {
+        $file = drush_get_context('DING_DEPLOY_DBDUMP', '');
+        if (!$file or !file_exists($file)) {
+          drush_set_error('NO_DBDUMP_FILE');
+        }
+        else {
+          $res = drush_backend_invoke('sql-connect');
+          if ($res && $file) {
+            $mysql = $res['output'];
+            drush_op_system($mysql . ' <' . $dump_file);
+          }
         }
       }
     case 'dbdump':
       // Error dumping. Not much to do other than remove the file.
-      $file = drush_get_context('DING_DEPLOY_DBDUMP', '');
-      if (file_exists($file)) {
-        unlink($file);
+      if (!drush_get_option('no-dump', FALSE)) {
+        $file = drush_get_context('DING_DEPLOY_DBDUMP', '');
+        if (file_exists($file)) {
+          unlink($file);
+        }
       }
     case 'link-shuffle':
       if (file_exists($env . '-previous')) {
@@ -342,7 +370,9 @@ function drush_ding_deploy_rollback() {
         drush_op('rename', $env . '-previous-bak', $env . '-previous');
       }
     case 'offline':
-      drush_backend_invoke('vset site_offline 0');
+      if (!drush_get_option('no-offline', FALSE)) {
+        drush_backend_invoke('vset site_offline 0');
+      }
     case 'init':
       // Nothing to roll back, we're golden.
   }
