@@ -272,6 +272,7 @@ function drush_ding_deploy() {
   if ($res['error_status'] == 0) {
     drush_set_context('DING_DEPLOY_STAGE', 'offline');
     if (!drush_get_option('no-offline', FALSE)) {
+      drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_DATABASE);
       $res2 = drush_backend_invoke('vset site_offline 1');
       if (!$res2 || $res2['error_status'] != 0) {
         return FALSE;
@@ -289,6 +290,7 @@ function drush_ding_deploy() {
 
     drush_set_context('DING_DEPLOY_STAGE', 'dbdump');
     if (!drush_get_option('no-dump', FALSE)) {
+      drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_DATABASE);
       drush_set_context('DING_DEPLOY_DBDUMP', $dump_file);
       $res2 = drush_backend_invoke('sql-dump --result-file=' . $dump_file);
       if (!$res2 || $res2['error_status'] != 0) {
@@ -298,6 +300,7 @@ function drush_ding_deploy() {
 
     drush_set_context('DING_DEPLOY_STAGE', 'updb');
     if (!drush_get_option('no-updb', FALSE)) {
+      drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_FULL);
       $res2 = drush_backend_invoke('updb');
       if (!$res2 || $res2['error_status'] != 0) {
         return FALSE;
@@ -306,6 +309,7 @@ function drush_ding_deploy() {
 
     drush_set_context('DING_DEPLOY_STAGE', 'post-updb');
     if (!drush_get_option('no-post-updb')) {
+      drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_DATABASE);
       $post_updb = drush_get_option('post-updb', array());
       foreach ($post_updb as $command) {
         $res2 = drush_backend_invoke($command);
