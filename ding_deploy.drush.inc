@@ -52,6 +52,7 @@ function ding_deploy_drush_command() {
       'no-updb' => "Don't run database updates",
       'no-post-updb' => "Don't run post update commands",
       'code-only' => "Alias for --no-offline --no-dump --no-updb --no-post-updb. Useful for first deployment and when you know there's no need for a full deployment",
+      'working-copy' => 'Create checkouts when possible',
     ),
     'examples' => array(
       'drush @staging --build-path=/home/deploy/build ding-deploy' => 'Deploy to the staging server.',
@@ -151,6 +152,9 @@ function drush_ding_deploy_install() {
  * Drush ding-deploy-setup validate callback.
  */
 function drush_ding_deploy_setup_validate() {
+  if (!drush_get_option('env', NULL)) {
+    return drush_set_error('NO_ENV');
+  }
   if (!drush_get_option('build-path', NULL)) {
     return drush_set_error('NO_BUILD_PATH');
   }
@@ -167,6 +171,7 @@ function drush_ding_deploy_setup() {
   $bootstrap = drush_get_option('bootstrap', DEFAULT_BOOTSTRAP_FILE);
   $profile = drush_get_option('profile-name', 'ding');
   $build_path = drush_get_option('build-path');
+  $env = drush_get_option('env');
   if (!file_exists($build_path)) {
     if (!drush_mkdir($build_path)) {
       return drush_set_error('ERROR_CREATING_BUILD_PATH');
@@ -213,7 +218,7 @@ function drush_ding_deploy_setup() {
 
   if (!drush_get_option('no-symlink', FALSE)) {
     if (!file_exists($root . '/profile/' . $profile)) {
-      symlink($build_path . '/' . $profile . '-latest', $root . '/profiles/' . $profile);
+      symlink($build_path . '/' . $env . '-latest', $root . '/profiles/' . $profile);
       drush_log('Created profile symlink.');
     }
   }
@@ -257,6 +262,9 @@ function drush_ding_deploy() {
   $dump_file = drush_tempnam($profile . '-' . $date . 'sql.');
 
   $options = array('--no-core', '--contrib-destination=.', 'bootstrap.make', $build_dir);
+  if (drush_get_option('working-copy', FALSE)) {
+    $options[] = '--working-copy';
+  }
 
   $cwd = getcwd();
   drush_op('chdir', $build_path);
