@@ -269,6 +269,7 @@ function drush_ding_deploy() {
   $cwd = getcwd();
   drush_op('chdir', $build_path);
   $res = drush_backend_invoke_args('make', $options);
+  drush_op('chdir', $cwd);
   if ($res['error_status'] == 0) {
     drush_set_context('DING_DEPLOY_STAGE', 'offline');
     if (!drush_get_option('no-offline', FALSE)) {
@@ -279,6 +280,8 @@ function drush_ding_deploy() {
       }
     }
 
+    $cwd = getcwd();
+    drush_op('chdir', $build_path);
     drush_set_context('DING_DEPLOY_STAGE', 'link-shuffle');
     if (file_exists($env . '-previous')) {
       drush_op('rename', $env . '-previous', $env . '-previous-bak');
@@ -287,6 +290,7 @@ function drush_ding_deploy() {
       drush_op('rename', $env . '-latest', $env . '-previous');
     }
     symlink($build_dir . '/profiles/' . $profile, $env . '-latest');
+    drush_op('chdir', $cwd);
 
     drush_set_context('DING_DEPLOY_STAGE', 'dbdump');
     if (!drush_get_option('no-dump', FALSE)) {
@@ -330,7 +334,11 @@ function drush_ding_deploy() {
     if (file_exists($dump_file)) {
       @unlink($dump_file);
     }
+
+    $cwd = getcwd();
+    drush_op('chdir', $build_path);
     @drush_op('unlink', $env . '-previous-bak');
+    drush_op('chdir', $cwd);
   }
   else {
     drush_set_error('MAKE_FAILED');
@@ -375,12 +383,16 @@ function drush_ding_deploy_rollback() {
         }
       }
     case 'link-shuffle':
+      $cwd = getcwd();
+      drush_op('chdir', $build_path);
+
       if (file_exists($env . '-previous')) {
         drush_op('rename', $env . '-previous', $env . '-latest');
       }
       if (file_exists($env . '-previous-bak')) {
         drush_op('rename', $env . '-previous-bak', $env . '-previous');
       }
+      drush_op('chdir', $cwd);
     case 'offline':
       if (!drush_get_option('no-offline', FALSE)) {
         drush_backend_invoke('vset site_offline 0');
