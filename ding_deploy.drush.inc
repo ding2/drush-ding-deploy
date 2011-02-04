@@ -29,6 +29,7 @@ function ding_deploy_drush_command() {
   $items['ding-deploy-setup'] = array(
     'description' => "Set up server for future deployments of site.",
     'options' => array(
+      'profile-name' => 'The name of the profile, defaults to ding2',
       'build-path' => 'Full path to build directory',
       'boostrap' => 'Bootstrap drush_make file. Fetched and put in the build directory',
       'no-core' => "Don't install Drupal core if not found",
@@ -45,6 +46,7 @@ function ding_deploy_drush_command() {
   $items['ding-deploy'] = array(
     'description' => "Set up server for future deployments of site.",
     'options' => array(
+      'profile-name' => 'The name of the profile, defaults to ding2',
       'env' => 'The environment that is build, for instance: "staging"',
       'build-path' => 'Full path to build directory',
       'no-offline' => "Don't set site offline",
@@ -58,6 +60,24 @@ function ding_deploy_drush_command() {
       'drush @staging --build-path=/home/deploy/build ding-deploy' => 'Deploy to the staging server.',
     ),
     'aliases' => array('ddeploy'),
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH, // No bootstrap at all.
+  );
+
+  $items['ding-deploy-build'] = array(
+    'description' => "Build profile.",
+    'arguments' => array(
+      'path' => 'The path to build to. Optional, defaults to <site root>/profiles/<profile-name>',
+    ),
+    'options' => array(
+      'profile-name' => 'The name of the profile, defaults to ding2',
+      'make-file' => 'Bootstrap make file to use. If not specified, use the bootstrap.make file in the build-path',
+      'build-path' => 'Full path to build directory, not used if --make-file is specified',
+      'working-copy' => 'Create checkouts when possible',
+    ),
+    'examples' => array(
+      'drush @dev ding-build /var/www/drupal-7.x/profiles/ding2' => 'Build ding in the specified dir.',
+    ),
+    'aliases' => array('ddbuild'),
     'bootstrap' => DRUSH_BOOTSTRAP_DRUSH, // No bootstrap at all.
   );
 
@@ -112,6 +132,10 @@ Builds the site and moves the symlinks if the build was successfull.
       return dt("Installing Drupal failed.");
     case 'error:NO_DBDUMP_FILE':
       return dt("No database dump file to restore.");
+    case 'error:NO_BUILD_PATH_OR_MAKE_FILE':
+      return dt("Either build path or makefile needs to be specified.");
+    case 'error:NO_PATH_OR_ROOT':
+      return dt("Root dir needs to be specified if omitting path.");
   }
 }
 
@@ -169,7 +193,7 @@ function drush_ding_deploy_setup_validate() {
 function drush_ding_deploy_setup() {
   $root = drush_get_option('root', NULL);
   $bootstrap = drush_get_option('bootstrap', DEFAULT_BOOTSTRAP_FILE);
-  $profile = drush_get_option('profile-name', 'ding');
+  $profile = drush_get_option('profile-name', 'ding2');
   $build_path = drush_get_option('build-path');
   $env = drush_get_option('env');
   if (!file_exists($build_path)) {
@@ -227,6 +251,42 @@ function drush_ding_deploy_setup() {
 }
 
 /**
+ * Drush ding-build validate callback.
+ */
+function drush_ding_deploy_build_validate($path = NULL) {
+  if (!drush_get_option('make-file', NULL) && !drush_get_option('build-path', NULL)) {
+    return drush_set_error('NO_BUILD_PATH_OR_MAKE_FILE');
+  }
+  if (!$path && !drush_get_option('root', NULL)) {
+    return drush_set_error('NO_PATH_OR_ROOT');
+  }
+}
+
+/**
+ * Drush ding-build command callback.
+ */
+function drush_ding_deploy_build($path = NULL) {
+  $profile = drush_get_option('profile-name', 'ding2');
+
+  $makefile = drush_get_option('make-file', NULL);
+  if (!$makefile) {
+    $makefile = drush_get_option('build-path', NULL) . '/bootstrap.make';
+  }
+
+  if (!$path) {
+    $path = drush_get_option('root', NULL) . '/profiles/' . $profile;
+  }
+
+
+  $options = array('--no-core', '--contrib-destination=.', $makefile, $path);
+  if (drush_get_option('working-copy', FALSE)) {
+    $options[] = '--working-copy';
+  }
+
+  $res = drush_backend_invoke_args('make', $options);
+}
+
+/**
  * Drush ding-deploy validate callback.
  */
 function drush_ding_deploy_validate() {
@@ -250,7 +310,7 @@ function drush_ding_deploy() {
     drush_set_option('no-post-updb', TRUE);
   }
 
-  $profile = drush_get_option('profile-name', 'ding');
+  $profile = drush_get_option('profile-name', 'ding2');
   $build_path = drush_get_option('build-path');
   $env = drush_get_option('env');
   if (!file_exists($build_path)) {
@@ -268,7 +328,14 @@ function drush_ding_deploy() {
 
   $cwd = getcwd();
   drush_op('chdir', $build_path);
-  $res = drush_backend_invoke_args('make', $options);
+
+  $options = array('--build-path=' . $build_path, $build_dir);
+  if (drush_get_option('working-copy', FALSE)) {
+    $options[] = '--working-copy';
+  }
+  $res = drush_backend_invoke_args('ding-deploy-build', $options);
+
+
   drush_op('chdir', $cwd);
   if ($res['error_status'] == 0) {
     drush_set_context('DING_DEPLOY_STAGE', 'offline');
