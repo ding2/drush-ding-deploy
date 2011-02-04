@@ -64,3 +64,17 @@ Deploys, sets the site offline, makes a database dump and moves the
 new build into place. Then it runs updb and additional commands before
 setting the site online again. If any of this fails, the entire
 deployment is rolled back.
+
+drush @prod ding-deploy
+
+Deploys, sets the site offline, makes a database dump and moves the
+new build into place. Then it runs updb and additional commands before
+setting the site online again. If any of this fails, the entire
+deployment is rolled back.
+
+drush ding-deploy-build --make-file=bootstrap.make testbuild
+
+Builds from the specified bootstrap file into
+testbuild/profiles/<profile>. This command is not supposed to be used
+for deployment, it is used internally by ding-deploy, and is usefull
+for creating development sites without using a full build setup.

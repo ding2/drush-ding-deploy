@@ -66,10 +66,9 @@ function ding_deploy_drush_command() {
   $items['ding-deploy-build'] = array(
     'description' => "Build profile.",
     'arguments' => array(
-      'path' => 'The path to build to. Optional, defaults to <site root>/profiles/<profile-name>',
+      'path' => 'The path to build to. Optional, defaults to site root',
     ),
     'options' => array(
-      'profile-name' => 'The name of the profile, defaults to ding2',
       'make-file' => 'Bootstrap make file to use. If not specified, use the bootstrap.make file in the build-path',
       'build-path' => 'Full path to build directory, not used if --make-file is specified',
       'working-copy' => 'Create checkouts when possible',
@@ -266,17 +265,14 @@ function drush_ding_deploy_build_validate($path = NULL) {
  * Drush ding-build command callback.
  */
 function drush_ding_deploy_build($path = NULL) {
-  $profile = drush_get_option('profile-name', 'ding2');
-
   $makefile = drush_get_option('make-file', NULL);
   if (!$makefile) {
     $makefile = drush_get_option('build-path', NULL) . '/bootstrap.make';
   }
 
   if (!$path) {
-    $path = drush_get_option('root', NULL) . '/profiles/' . $profile;
+    $path = drush_get_option('root', NULL);
   }
-
 
   $options = array('--no-core', '--contrib-destination=.', $makefile, $path);
   if (drush_get_option('working-copy', FALSE)) {
