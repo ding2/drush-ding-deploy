@@ -26,6 +26,18 @@ function ding_deploy_drush_command() {
     'bootstrap' => DRUSH_BOOTSTRAP_DRUSH, // No bootstrap at all.
   );
 
+  $items['ding-deploy-update'] = array(
+    'description' => "Update Ding Deploy on the server.",
+    'arguments' => array(
+      'site-alias' => 'The site alias to update',
+    ),
+    'examples' => array(
+      'drush ding-deploy-update @staging' => 'Update on the @staging server.',
+    ),
+    'aliases' => array('ddupdate'),
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH, // No bootstrap at all.
+  );
+
   $items['ding-deploy-setup'] = array(
     'description' => "Set up server for future deployments of site.",
     'options' => array(
@@ -118,7 +130,9 @@ Builds the site and moves the symlinks if the build was successfull.
     case 'error:NO_REMOTE_HOST':
       return dt("No remote host specified.");
     case 'error:INSTALL_ERROR':
-      return dt("There was an error attempting to install.");
+      return dt("There was an error installing.");
+    case 'error:INSTALL_UPDATE':
+      return dt("There was an error updating.");
     case 'error:ERROR_CREATING_BUILD_PATH':
       return dt("Could not create build directory.");
     case 'error:ERROR_DOWNLOADING_BOOTSTRAP':
@@ -171,6 +185,41 @@ function drush_ding_deploy_install() {
   }
   drush_print("Ding Deploy installed.");
 }
+
+/**
+ * Drush ding-deploy-update validate callback.
+ */
+function drush_ding_deploy_update_validate($alias) {
+  $options = array();
+  // Expand alias.
+  $settings = drush_sitealias_evaluate_path($alias, $options);
+
+  if (!drush_get_option('remote-user', NULL)) {
+    return drush_set_error('NO_REMOTE_USER');
+  }
+  if (!drush_get_option('remote-host', NULL)) {
+    return drush_set_error('NO_REMOTE_HOST');
+  }
+}
+
+/**
+ * Drush ding-deploy-update command callback.
+ */
+function drush_ding_deploy_update() {
+  $username = drush_get_option('remote-user', NULL);
+  $hostname = drush_get_option('remote-host', NULL);
+  $ssh_options = drush_get_option('ssh-options', "-o PasswordAuthentication=no");
+  $cmd = 'cd .drush/drush-ding-deploy; git pull';
+  $cmd = "ssh " . $ssh_options . " " . escapeshellarg($username) . "@" . escapeshellarg($hostname) . " " . escapeshellarg($cmd);
+  if (!drush_shell_exec($cmd)) {
+    foreach (drush_shell_exec_output() as $line) {
+      drush_log($line, 'warning');
+    }
+    return drush_set_error('UPDATE_ERROR');
+  }
+  drush_print("Ding Deploy updated.");
+}
+
 /**
  * Drush ding-deploy-setup validate callback.
  */
