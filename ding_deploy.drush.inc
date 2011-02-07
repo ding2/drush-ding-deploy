@@ -109,6 +109,10 @@ function ding_deploy_drush_help($section) {
       return dt("Install Ding Deploy on server.
 
 This will install Ding Deploy in the deployment users ~/.drush folder. Must be run locally.");
+    case 'drush:ding-deploy-update':
+      return dt("Update Ding Deploy on server.
+
+This will attempt to update Ding Deploy on the server using git pull. Must be run locally.");
     case 'drush:ding-deploy-setup':
       return dt("Set up a site for future deployments.
 
@@ -118,6 +122,11 @@ Will install Drupal and set up proper symlinks to the build directory.
       return dt("Deploy site.
 
 Builds the site and moves the symlinks if the build was successfull.
+");
+    case 'drush:ding-deploy-build':
+      return dt("Build site.
+
+Builds the site. Mostly useful for developers, but is used internally by ding-deploy.
 ");
     case 'error:NO_ENV':
       return dt("No environment specified.");
