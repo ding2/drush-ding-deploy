@@ -202,10 +202,15 @@ function drush_ding_deploy_setup() {
     drush_log('Created build dir.');
   }
 
-  if (!drush_shell_exec("wget --no-check-certificate -O %s %s", $build_path . '/bootstrap.make', $bootstrap)) {
-    // Wget creates the file even if failing.
-    unlink($build_path . '/bootstrap.make');
-    return drush_set_error('ERROR_DOWNLOADING_BOOTSTRAP');
+  if (file_exists($build_path . '/bootstrap.make')) {
+    drush_log('Makefile exists, not overwriting');
+  }
+  else {
+    if (!drush_shell_exec("wget --no-check-certificate -O %s %s", $build_path . '/bootstrap.make', $bootstrap)) {
+      // Wget creates the file even if failing.
+      unlink($build_path . '/bootstrap.make');
+      return drush_set_error('ERROR_DOWNLOADING_BOOTSTRAP');
+    }
   }
 
   if (!drush_get_option('no-core', FALSE)) {
