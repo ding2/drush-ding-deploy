@@ -81,6 +81,7 @@ function ding_deploy_drush_command() {
       'path' => 'The path to build to. Optional, defaults to site root',
     ),
     'options' => array(
+      'clean' => 'Delete any existing profile before building',
       'make-file' => 'Bootstrap make file to use. If not specified, use the bootstrap.make file in the build-path',
       'build-path' => 'Full path to build directory, not used if --make-file is specified',
       'working-copy' => 'Create checkouts when possible',
@@ -150,6 +151,8 @@ Builds the site. Mostly useful for developers, but is used internally by ding-de
       return dt("Build path doesn't exist.");
     case 'error:MAKE_FAILED':
       return dt("Drush make failed on bootstrap.make.");
+    case 'error:BUILD_FAILED':
+      return dt("Error building, there's not a symlink in the way of the profile?");
     case 'error:DRUPAL_DOWNLOAD_FAILED':
       return dt("Installing Drupal failed.");
     case 'error:NO_DBDUMP_FILE':
@@ -337,12 +340,44 @@ function drush_ding_deploy_build($path = NULL) {
     $path = drush_get_option('root', NULL);
   }
 
+  if (drush_get_option('clean', NULL)) {
+    $profile = drush_get_option('profile-name', 'ding2');
+    $existing = $path . '/profiles/' . $profile;
+    if (file_exists($existing)) {
+      if (drush_confirm(dt('Are you sure you want to delete @existing', array('@existing' => $existing)))) {
+        $n = drush_delete_dir($existing);
+      }
+      else {
+        return drush_user_abort();
+      }
+    }
+  }
+
+  // Work around drush make not wanting to build to an existing dir, unless
+  // it's '.'.
+  if (file_exists($path)) {
+    $old_cwd = getcwd();
+    $makefile = realpath($makefile);
+    chdir($path);
+    $path = '.';
+  }
+
   $options = array('--no-core', '--contrib-destination=.', $makefile, $path);
   if (drush_get_option('working-copy', FALSE)) {
     $options[] = '--working-copy';
   }
 
   $res = drush_backend_invoke_args('make', $options);
+
+  if (isset($old_cwd)) {
+    chdir($old_cwd);
+  }
+
+  if (!$res) {
+    drush_set_error('BUILD_FAILED');
+  }
+
+  return $res;
 }
 
 /**
@@ -385,9 +420,6 @@ function drush_ding_deploy() {
     $options[] = '--working-copy';
   }
 
-  $cwd = getcwd();
-  drush_op('chdir', $build_path);
-
   $options = array('--build-path=' . $build_path, $build_dir);
   if (drush_get_option('working-copy', FALSE)) {
     $options[] = '--working-copy';
@@ -395,7 +427,6 @@ function drush_ding_deploy() {
   $res = drush_backend_invoke_args('ding-deploy-build', $options);
 
 
-  drush_op('chdir', $cwd);
   if ($res['error_status'] == 0) {
     drush_set_context('DING_DEPLOY_STAGE', 'offline');
     if (!drush_get_option('no-offline', FALSE)) {
@@ -471,7 +502,6 @@ function drush_ding_deploy() {
     drush_delete_dir($build_dir);
     return FALSE;
   }
-  drush_op('chdir', $cwd);
 
   drush_print('Deployment complete.');
 }
