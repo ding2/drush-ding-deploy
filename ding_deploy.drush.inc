@@ -158,7 +158,7 @@ Builds the site. Mostly useful for developers, but is used internally by ding-de
     case 'error:NO_DBDUMP_FILE':
       return dt("No database dump file to restore.");
     case 'error:NO_BUILD_PATH_OR_MAKE_FILE':
-      return dt("Either build path or makefile needs to be specified.");
+      return dt("Either build path or make-file needs to be specified.");
     case 'error:NO_PATH_OR_ROOT':
       return dt("Root dir needs to be specified if omitting path.");
   }
@@ -414,11 +414,6 @@ function drush_ding_deploy() {
   $date = date('YmdHis');
   $build_dir = $profile . '-' . $date;
   $dump_file = drush_tempnam($profile . '-' . $date . 'sql.');
-
-  $options = array('--no-core', '--contrib-destination=.', 'bootstrap.make', $build_dir);
-  if (drush_get_option('working-copy', FALSE)) {
-    $options[] = '--working-copy';
-  }
 
   $options = array('--build-path=' . $build_path, $build_dir);
   if (drush_get_option('working-copy', FALSE)) {
