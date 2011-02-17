@@ -415,7 +415,7 @@ function drush_ding_deploy() {
   $build_dir = $profile . '-' . $date;
   $dump_file = drush_tempnam($profile . '-' . $date . 'sql.');
 
-  $options = array('--build-path=' . $build_path, $build_dir);
+  $options = array('--build-path=' . $build_path, $build_path . '/' . $build_dir);
   if (drush_get_option('working-copy', FALSE)) {
     $options[] = '--working-copy';
   }
@@ -441,7 +441,7 @@ function drush_ding_deploy() {
     if (file_exists($env . '-latest')) {
       drush_op('rename', $env . '-latest', $env . '-previous');
     }
-    symlink($build_dir . '/profiles/' . $profile, $env . '-latest');
+    symlink($build_dir, $env . '-latest');
     drush_op('chdir', $cwd);
 
     drush_set_context('DING_DEPLOY_STAGE', 'dbdump');
