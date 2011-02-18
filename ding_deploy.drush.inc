@@ -172,6 +172,10 @@ function drush_ding_deploy_install_validate($alias) {
   // Expand alias.
   $settings = drush_sitealias_evaluate_path($alias, $options);
 
+  foreach( $settings as $key => $v ) {
+    drush_set_option( $key, $v );
+  }
+
   if (!drush_get_option('remote-user', NULL)) {
     return drush_set_error('NO_REMOTE_USER');
   }
