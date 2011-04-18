@@ -5,6 +5,15 @@ DESCRIPTION
 
 This is a standard deployment script for Ding.
 
+Important
+---------
+
+For this to work, you have to patch drush_make module (http://drupal.org/node/1016924). 
+
+The patch to implement is http://drupal.org/files/issues/recursive-versions.patch
+
+patch -p1 < recursive-versions.patch
+
 
 Setup
 -----
