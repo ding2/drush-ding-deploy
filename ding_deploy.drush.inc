@@ -133,7 +133,7 @@ Builds the site. Mostly useful for developers, but is used internally by ding-de
       return dt("No environment specified.");
     case 'error:NO_BUILD_PATH':
       return dt("No build path specified.");
-    case 'error:NO_REMOTE_USER':
+    case 'error:NO_ROOT_PATH':
       return dt("No Drupal root specified.");
     case 'error:NO_REMOTE_USER':
       return dt("No remote user specified.");
