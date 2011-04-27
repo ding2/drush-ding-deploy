@@ -436,6 +436,16 @@ function drush_ding_deploy() {
       }
     }
 
+    drush_set_context('DING_DEPLOY_STAGE', 'dbdump');
+    if (!drush_get_option('no-dump', FALSE)) {
+      drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_DATABASE);
+      drush_set_context('DING_DEPLOY_DBDUMP', $dump_file);
+      $res2 = drush_backend_invoke('sql-dump --result-file=' . $dump_file);
+      if (!$res2 || $res2['error_status'] != 0) {
+        return FALSE;
+      }
+    }
+
     $cwd = getcwd();
     drush_op('chdir', $build_path);
     drush_set_context('DING_DEPLOY_STAGE', 'link-shuffle');
@@ -447,16 +457,6 @@ function drush_ding_deploy() {
     }
     symlink($build_dir . '/profiles/' . $profile, $env . '-latest');
     drush_op('chdir', $cwd);
-
-    drush_set_context('DING_DEPLOY_STAGE', 'dbdump');
-    if (!drush_get_option('no-dump', FALSE)) {
-      drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_DATABASE);
-      drush_set_context('DING_DEPLOY_DBDUMP', $dump_file);
-      $res2 = drush_backend_invoke('sql-dump --result-file=' . $dump_file);
-      if (!$res2 || $res2['error_status'] != 0) {
-        return FALSE;
-      }
-    }
 
     drush_set_context('DING_DEPLOY_STAGE', 'updb');
     if (!drush_get_option('no-updb', FALSE)) {
@@ -529,14 +529,6 @@ function drush_ding_deploy_rollback() {
           }
         }
       }
-    case 'dbdump':
-      // Error dumping. Not much to do other than remove the file.
-      if (!drush_get_option('no-dump', FALSE)) {
-        $file = drush_get_context('DING_DEPLOY_DBDUMP', '');
-        if (file_exists($file)) {
-          unlink($file);
-        }
-      }
     case 'link-shuffle':
       $cwd = getcwd();
       drush_op('chdir', $build_path);
@@ -548,6 +540,14 @@ function drush_ding_deploy_rollback() {
         drush_op('rename', $env . '-previous-bak', $env . '-previous');
       }
       drush_op('chdir', $cwd);
+    case 'dbdump':
+      // Error dumping. Not much to do other than remove the file.
+      if (!drush_get_option('no-dump', FALSE)) {
+        $file = drush_get_context('DING_DEPLOY_DBDUMP', '');
+        if (file_exists($file)) {
+          unlink($file);
+        }
+      }
     case 'offline':
       if (!drush_get_option('no-offline', FALSE)) {
         drush_backend_invoke('vset site_offline 0');
