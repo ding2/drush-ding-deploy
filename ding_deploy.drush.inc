@@ -309,7 +309,7 @@ function drush_ding_deploy_setup() {
     }
   }
 
-  if (!drush_get_option('no-symlink', FALSE)) {
+  if (!drush_get_option('no-symlink', FALSE) || !drush_get_option('no-core', FALSE)) {
     if (!file_exists($root . '/profile/' . $profile)) {
       symlink($build_path . '/' . $env . '-latest', $root . '/profiles/' . $profile);
       drush_log('Created profile symlink.');
