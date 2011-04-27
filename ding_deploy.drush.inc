@@ -56,7 +56,7 @@ function ding_deploy_drush_command() {
 
 
   $items['ding-deploy'] = array(
-    'description' => "Set up server for future deployments of site.",
+    'description' => "Deploy to an environment.",
     'options' => array(
       'profile-name' => 'The name of the profile, defaults to ding2',
       'env' => 'The environment that is build, for instance: "staging"',
