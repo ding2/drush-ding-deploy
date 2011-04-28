@@ -6,7 +6,16 @@
  */
 
 define('DING_DEPLOY_GIT_REPO', 'https://github.com/dingproject/drush-ding-deploy.git');
-define('DEFAULT_BOOTSTRAP_FILE', 'http://localhost/test2/test.make');
+
+define('BOOTSTRAP_MAKE','api = 2
+core = @core-version
+
+projects[] = drupal
+
+projects[@name][type] = "profile"
+projects[@name][download][type] = "@type"
+projects[@name][download][url] = "@url"
+');
 
 /**
  * Implements hook_drush_command().
@@ -41,9 +50,8 @@ function ding_deploy_drush_command() {
   $items['ding-deploy-setup'] = array(
     'description' => "Set up server for future deployments of site.",
     'options' => array(
-      'profile-name' => 'The name of the profile, defaults to ding2',
+      'profile-name' => 'The name of the profile.',
       'build-path' => 'Full path to build directory',
-      'boostrap' => 'Bootstrap drush_make file. Fetched and put in the build directory',
       'no-core' => "Don't install Drupal core if not found",
       'no-symlink' => "Don't create a symlink in Drupal profile directory",
     ),
@@ -58,7 +66,7 @@ function ding_deploy_drush_command() {
   $items['ding-deploy'] = array(
     'description' => "Deploy to an environment.",
     'options' => array(
-      'profile-name' => 'The name of the profile, defaults to ding2',
+      'profile-name' => 'The name of the profile.',
       'env' => 'The environment that is build, for instance: "staging"',
       'build-path' => 'Full path to build directory',
       'no-offline' => "Don't set site offline",
@@ -82,8 +90,10 @@ function ding_deploy_drush_command() {
     ),
     'options' => array(
       'clean' => 'Delete any existing profile before building',
-      'make-file' => 'Bootstrap make file to use. If not specified, use the bootstrap.make file in the build-path',
-      'build-path' => 'Full path to build directory, not used if --make-file is specified',
+      'profile-core-version' => '',
+      'profile-name' => 'Name of the profile',
+      'profile-type' => 'Fetch method. Same as type in drush make files. Defaults to git',
+      'profile-url' => 'The url to fetch the profile from',
       'working-copy' => 'Create checkouts when possible',
     ),
     'examples' => array(
@@ -151,8 +161,6 @@ Builds the site. Mostly useful for developers, but is used internally by ding-de
       return dt("There was an error updating.");
     case 'error:ERROR_CREATING_BUILD_PATH':
       return dt("Could not create build directory.");
-    case 'error:ERROR_DOWNLOADING_BOOTSTRAP':
-      return dt("Could not download bootstrap file.");
     case 'error:BUILD_PATH_DOES_NOT_EXIST':
       return dt("Build path doesn't exist.");
     case 'error:MAKE_FAILED':
@@ -163,10 +171,14 @@ Builds the site. Mostly useful for developers, but is used internally by ding-de
       return dt("Installing Drupal failed.");
     case 'error:NO_DBDUMP_FILE':
       return dt("No database dump file to restore.");
-    case 'error:NO_BUILD_PATH_OR_MAKE_FILE':
-      return dt("Either build path or make-file needs to be specified.");
+    case 'error:NO_PROFILE_CORE_VERSION':
+      return dt("No profile core version supplied.");
     case 'error:NO_PATH_OR_ROOT':
       return dt("Root dir needs to be specified if omitting path.");
+    case 'error:NO_PROFILE_NAME':
+      return dt("No profile name supplied.");
+    case 'error:NO_PROFILE_URL':
+      return dt("No profile url supplied.");
   }
 }
 
@@ -246,6 +258,9 @@ function drush_ding_deploy_update() {
  * Drush ding-deploy-setup validate callback.
  */
 function drush_ding_deploy_setup_validate() {
+  if (!drush_get_option('profile-name', NULL)) {
+    return drush_set_error('NO_PROFILE_NAME');
+  }
   if (!drush_get_option('env', NULL)) {
     return drush_set_error('NO_ENV');
   }
@@ -262,8 +277,7 @@ function drush_ding_deploy_setup_validate() {
  */
 function drush_ding_deploy_setup() {
   $root = drush_get_option('root', NULL);
-  $bootstrap = drush_get_option('bootstrap', DEFAULT_BOOTSTRAP_FILE);
-  $profile = drush_get_option('profile-name', 'ding2');
+  $profile = drush_get_option('profile-name', NULL);
   $build_path = drush_get_option('build-path');
   $env = drush_get_option('env');
   if (!file_exists($build_path)) {
@@ -271,17 +285,6 @@ function drush_ding_deploy_setup() {
       return drush_set_error('ERROR_CREATING_BUILD_PATH');
     }
     drush_log('Created build dir.');
-  }
-
-  if (file_exists($build_path . '/bootstrap.make')) {
-    drush_log('Makefile exists, not overwriting');
-  }
-  else {
-    if (!drush_shell_exec("wget --no-check-certificate -O %s %s", $build_path . '/bootstrap.make', $bootstrap)) {
-      // Wget creates the file even if failing.
-      unlink($build_path . '/bootstrap.make');
-      return drush_set_error('ERROR_DOWNLOADING_BOOTSTRAP');
-    }
   }
 
   if (!drush_get_option('no-core', FALSE)) {
@@ -302,6 +305,7 @@ function drush_ding_deploy_setup() {
       $options = array('--drupal-project-rename=' . $basename, 'drupal');
       $cwd = getcwd();
       drush_op('chdir', dirname($root));
+      // TODO: add in profile-core-version
       $res = drush_backend_invoke_args('dl', $options);
       if ($res['error_status'] == 0) {
       }
@@ -329,8 +333,14 @@ function drush_ding_deploy_setup() {
  * Drush ding-build validate callback.
  */
 function drush_ding_deploy_build_validate($path = NULL) {
-  if (!drush_get_option('make-file', NULL) && !drush_get_option('build-path', NULL)) {
-    return drush_set_error('NO_BUILD_PATH_OR_MAKE_FILE');
+  if (!drush_get_option('profile-core-version', NULL)) {
+    return drush_set_error('NO_PROFILE_CORE_VERSION');
+  }
+  if (!drush_get_option('profile-name', NULL)) {
+    return drush_set_error('NO_PROFILE_NAME');
+  }
+  if (!drush_get_option('profile-url', NULL)) {
+    return drush_set_error('NO_PROFILE_URL');
   }
   if (!$path && !drush_get_option('root', NULL)) {
     return drush_set_error('NO_PATH_OR_ROOT');
@@ -341,17 +351,18 @@ function drush_ding_deploy_build_validate($path = NULL) {
  * Drush ding-build command callback.
  */
 function drush_ding_deploy_build($path = NULL) {
-  $makefile = drush_get_option('make-file', NULL);
-  if (!$makefile) {
-    $makefile = drush_get_option('build-path', NULL) . '/bootstrap.make';
-  }
+  $profile = drush_get_option('profile-name', NULL);
+  $profile_core_version = drush_get_option('profile-core-version', NULL);
+  $profile_type = drush_get_option('profile-type', 'git');
+  $profile_url = drush_get_option('profile-url', NULL);
+
+  $makefile = drush_save_data_to_temp_file(strtr(BOOTSTRAP_MAKE, array('@core-version' => $profile_core_version, '@name' => $profile, '@type' => $profile_type, '@url' => $profile_url)));
 
   if (!$path) {
     $path = drush_get_option('root', NULL);
   }
 
   if (drush_get_option('clean', NULL)) {
-    $profile = drush_get_option('profile-name', 'ding2');
     $existing = $path . '/profiles/' . $profile;
     if (file_exists($existing)) {
       if (drush_confirm(dt('Are you sure you want to delete @existing', array('@existing' => $existing)))) {
@@ -394,6 +405,9 @@ function drush_ding_deploy_build($path = NULL) {
  * Drush ding-deploy validate callback.
  */
 function drush_ding_deploy_validate() {
+  if (!drush_get_option('profile-name', NULL)) {
+    return drush_set_error('NO_PROFILE_NAME');
+  }
   if (!drush_get_option('env', NULL)) {
     return drush_set_error('NO_ENV');
   }
@@ -414,7 +428,7 @@ function drush_ding_deploy() {
     drush_set_option('no-post-updb', TRUE);
   }
 
-  $profile = drush_get_option('profile-name', 'ding2');
+  $profile = drush_get_option('profile-name', NULL);
   $build_path = drush_get_option('build-path');
   $env = drush_get_option('env');
   if (!file_exists($build_path)) {
@@ -425,11 +439,13 @@ function drush_ding_deploy() {
   $build_dir = $profile . '-' . $date;
   $dump_file = drush_tempnam($profile . '-' . $date . 'sql.');
 
-  $options = array('--build-path=' . $build_path, $build_path . '/' . $build_dir);
+  // Copy command line options to settings.
+  $settings = drush_get_context('cli');
+  $settings['build-path'] = $build_path;
   if (drush_get_option('working-copy', FALSE)) {
-    $options[] = '--working-copy';
+    $settings['working-copy'] = TRUE;
   }
-  $res = drush_backend_invoke_args('ding-deploy-build', $options);
+  $res = drush_backend_invoke_sitealias($settings, 'ding-deploy-build', array($build_path . '/' . $build_dir), $settings);
 
 
   if ($res['error_status'] == 0) {
@@ -579,24 +595,10 @@ function drush_ding_deploy_test() {
     drush_log(dt("No files on localhost?"), 'error');
     return;
   }
-  // file_put_contents($test_path . '/bootstrap.make', $bootstrap);
-
-  // $options = array('--no-core');
-  // $data = drush_backend_invoke('make bootstrap.make', $options);
-
-  // $options = array('--alias-path=' . $alias_dir);
-  // $data = drush_backend_invoke('status @test.basic', $options);
-
-  $std_options = array(
-    '--alias-path=' . $alias_dir,
-    '--bootstrap=http://localhost/ding-deploy-test/bootstrap.make',
-    '--root=/tmp/ding-deploy-test/root',
-    '--uri=std.test.dev',
-  );
-
-  $options = array(/*'--no-core'*/);
-  $options = array_merge($std_options, $options);
-  $data = drush_backend_invoke('@test.basic ding-deploy-setup', $options);
+  drush_set_option('alias-path', $alias_dir);
+  $settings = drush_sitealias_get_record('@test.basic');
+  $settings['alias-path'] = $alias_dir;
+  $data = drush_backend_invoke_sitealias($settings, 'ding-deploy-setup', array(), $settings);
 
   if (empty($data['error_status'])) {
     drush_log(dt('Basic setup works.'), 'ok');
@@ -606,13 +608,14 @@ function drush_ding_deploy_test() {
     return;
   }
 
-  if (!_file_check($test_path . '/build/bootstrap.make')) {
-    return;
+  if (file_exists($test_path . '/build/bootstrap.make')) {
+    return drush_set_error('TEST_ERROR', 'Bootstrap file exists');
   }
 
-  $options = array('--code-only');
-  $options = array_merge($std_options, $options);
-  $data = drush_backend_invoke('@test.basic ding-deploy ', $options);
+  $settings = drush_sitealias_get_record('@test.basic');
+  $settings['alias-path'] = $alias_dir;
+  $settings['code-only'] = TRUE;
+  $data = drush_backend_invoke_sitealias($settings, 'ding-deploy', array(), $settings);
 
   if (empty($data['error_status'])) {
     drush_log(dt('Basic deploy works.'), 'ok');
@@ -634,9 +637,10 @@ function drush_ding_deploy_test() {
     return;
   }
 
-  $options = array('--code-only');
-  $options = array_merge($std_options, $options);
-  $data = drush_backend_invoke('@test.basic2 ding-deploy-build ' . $test_path . '/direct', $options);
+  $settings = drush_sitealias_get_record('@test.basic2');
+  $settings['alias-path'] = $alias_dir;
+  $settings['code-only'] = TRUE;
+  $data = drush_backend_invoke_sitealias($settings, 'ding-deploy-build', array($test_path . '/direct'), $settings);
 
   if (empty($data['error_status'])) {
     drush_log(dt('Basic build works.'), 'ok');
@@ -646,11 +650,11 @@ function drush_ding_deploy_test() {
     return;
   }
 
-  if (!_file_check($test_path . '/direct/profiles/basic2/basic.make')) {
+  if (!_file_check($test_path . '/direct/profiles/basic/basic.make')) {
     return;
   }
 
-  if (!_file_check($test_path . '/direct/profiles/basic2/modules/webtrends/webtrends.module')) {
+  if (!_file_check($test_path . '/direct/profiles/basic/modules/webtrends/webtrends.module')) {
     return;
   }
 

@@ -8,7 +8,7 @@ This is a standard deployment script for Ding.
 Important
 ---------
 
-For this to work, you have to patch drush_make module (http://drupal.org/node/1016924). 
+For this to work, you have to patch drush_make module (http://drupal.org/node/1016924).
 
 The patch to implement is http://drupal.org/files/issues/recursive-versions.patch
 
@@ -25,6 +25,8 @@ $aliases['prod'] = array(
   'uri' => 'default',
   'root' => '/var/www/sitename.prod',
   'profile-name' => 'ding', // The name of the profile.
+  'profile-url' => 'git@github.com:ding/ding.git', // Profile repository
+  'profile-core-version' => '6.x', // The Drupal core version
   'env' => 'prod', // Same as the alias name.
   'build-path' => '/home/deploy/build/sitename', // Directory for builds
   'remote-host' => 'host.example.com',
@@ -42,6 +44,14 @@ $aliases['staging'] = array(
   'parent' => '@prod',
   'root' => '/var/www/sitename.staging',
   'env' => 'staging',
+);
+
+$aliases['local'] = array(
+  'root' => '/var/www/sitename',
+  'profile-name' => 'ding', // The name of the profile.
+  'profile-url' => 'git@github.com:ding/ding.git', // Profile repository
+  'profile-core-version' => '6.x', // The Drupal core version
+  'env' => 'local', // Same as the alias name.
 );
 
 
@@ -81,9 +91,9 @@ new build into place. Then it runs updb and additional commands before
 setting the site online again. If any of this fails, the entire
 deployment is rolled back.
 
-drush ding-deploy-build --make-file=bootstrap.make testbuild
+drush ding-deploy-build @local testbuild
 
-Builds from the specified bootstrap file into
+Builds from the specified profile into
 testbuild/profiles/<profile>. This command is not supposed to be used
 for deployment, it is used internally by ding-deploy, and is usefull
 for creating development sites without using a full build setup.
