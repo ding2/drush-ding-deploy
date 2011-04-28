@@ -8,11 +8,11 @@ This is a standard deployment script for Ding.
 Important
 ---------
 
-For this to work, you have to patch drush_make module (http://drupal.org/node/1016924).
+For this to work, you have to patch drush_make (http://drupal.org/node/947158).
 
-The patch to implement is http://drupal.org/files/issues/recursive-versions.patch
+Use http://drupal.org/files/issues/947158-recursive_0.patch :
 
-patch -p1 < recursive-versions.patch
+patch -p1 < 947158-recursive_0.patch
 
 
 Setup
