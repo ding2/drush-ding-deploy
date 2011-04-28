@@ -93,6 +93,12 @@ function ding_deploy_drush_command() {
     'bootstrap' => DRUSH_BOOTSTRAP_DRUSH, // No bootstrap at all.
   );
 
+  $items['ding-deploy-test'] = array(
+    'description' => "Run some tests.",
+    'aliases' => array('ddtest'),
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH, // No bootstrap at all.
+  );
+
   return $items;
 
 }
@@ -555,4 +561,107 @@ function drush_ding_deploy_rollback() {
     case 'init':
       // Nothing to roll back, we're golden.
   }
+}
+
+/**
+ *
+ */
+function drush_ding_deploy_test() {
+  drush_print('Here be dragons.');
+  $test_path = '/tmp/ding-deploy-test';
+  $alias_dir = dirname(__FILE__) . '/tests/aliases';
+
+  drush_shell_exec('rm -rf ' . $test_path);
+  mkdir($test_path);
+  chdir($test_path);
+  $bootstrap = file_get_contents('http://localhost/ding-deploy-test/bootstrap.make');
+  if (!preg_match('{ding-deploy-test/basic.tar.gz}', $bootstrap)) {
+    drush_log(dt("No files on localhost?"), 'error');
+    return;
+  }
+  // file_put_contents($test_path . '/bootstrap.make', $bootstrap);
+
+  // $options = array('--no-core');
+  // $data = drush_backend_invoke('make bootstrap.make', $options);
+
+  // $options = array('--alias-path=' . $alias_dir);
+  // $data = drush_backend_invoke('status @test.basic', $options);
+
+  $std_options = array(
+    '--alias-path=' . $alias_dir,
+    '--bootstrap=http://localhost/ding-deploy-test/bootstrap.make',
+    '--root=/tmp/ding-deploy-test/root',
+    '--uri=std.test.dev',
+  );
+
+  $options = array(/*'--no-core'*/);
+  $options = array_merge($std_options, $options);
+  $data = drush_backend_invoke('@test.basic ding-deploy-setup', $options);
+
+  if (empty($data['error_status'])) {
+    drush_log(dt('Basic setup works.'), 'ok');
+  }
+  else {
+    drush_log(dt("Failed basic setup."), 'error');
+    return;
+  }
+
+  if (!_file_check($test_path . '/build/bootstrap.make')) {
+    return;
+  }
+
+  $options = array('--code-only');
+  $options = array_merge($std_options, $options);
+  $data = drush_backend_invoke('@test.basic ding-deploy ', $options);
+
+  if (empty($data['error_status'])) {
+    drush_log(dt('Basic deploy works.'), 'ok');
+  }
+  else {
+    drush_log(dt("Failed basic deployment."), 'error');
+    return;
+  }
+
+  if (!_file_check($test_path . '/build/stg-latest')) {
+    return;
+  }
+
+  if (!_file_check($test_path . '/root/profiles/basic/basic.make')) {
+    return;
+  }
+
+  if (!_file_check($test_path . '/root/profiles/basic/modules/webtrends/webtrends.module')) {
+    return;
+  }
+
+  $options = array('--code-only');
+  $options = array_merge($std_options, $options);
+  $data = drush_backend_invoke('@test.basic2 ding-deploy-build ' . $test_path . '/direct', $options);
+
+  if (empty($data['error_status'])) {
+    drush_log(dt('Basic build works.'), 'ok');
+  }
+  else {
+    drush_log(dt("Failed basic build."), 'error');
+    return;
+  }
+
+  if (!_file_check($test_path . '/direct/profiles/basic2/basic.make')) {
+    return;
+  }
+
+  if (!_file_check($test_path . '/direct/profiles/basic2/modules/webtrends/webtrends.module')) {
+    return;
+  }
+
+  //drush_print_r($data);
+
+}
+
+function _file_check($file) {
+  if (!file_exists($file)) {
+    drush_log(dt("@file doesn't exist.", array('@file' => $file)), 'error');
+    return FALSE;
+  }
+  return TRUE;
 }
