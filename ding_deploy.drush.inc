@@ -439,8 +439,8 @@ function drush_ding_deploy() {
   $build_dir = $profile . '-' . $date;
   $dump_file = drush_tempnam($profile . '-' . $date . 'sql.');
 
-  // Copy command line options to settings.
-  $settings = drush_get_context('cli');
+  // Copy alias/settings/command line options to settings.
+  $settings = drush_get_merged_options();
   $settings['build-path'] = $build_path;
   if (drush_get_option('working-copy', FALSE)) {
     $settings['working-copy'] = TRUE;
