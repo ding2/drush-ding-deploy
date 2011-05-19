@@ -383,12 +383,15 @@ function drush_ding_deploy_build($path = NULL) {
     $path = '.';
   }
 
-  $options = array('--no-core', '--contrib-destination=.', $makefile, $path);
+  // Copy alias/settings/command line options to settings.
+  $settings = array(
+    'no-core' => TRUE,
+    'contrib-destination' => '.'
+  );
   if (drush_get_option('working-copy', FALSE)) {
-    $options[] = '--working-copy';
+    $settings['working-copy'] = TRUE;
   }
-
-  $res = drush_backend_invoke_args('make', $options);
+  $res = drush_backend_invoke_sitealias($settings, 'make', array($makefile, $path), $settings);
 
   if (isset($old_cwd)) {
     chdir($old_cwd);
