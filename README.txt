@@ -1,5 +1,4 @@
 
-
 DESCRIPTION
 ===========
 
@@ -76,13 +75,6 @@ drush @prod ding-deploy --code-only
 Deploys to the site. Runs the bootstrap make file and symlinks the new
 build into the site. The --code-only is needed when there isn't a
 running site yet.
-
-drush @prod ding-deploy
-
-Deploys, sets the site offline, makes a database dump and moves the
-new build into place. Then it runs updb and additional commands before
-setting the site online again. If any of this fails, the entire
-deployment is rolled back.
 
 drush @prod ding-deploy
 
