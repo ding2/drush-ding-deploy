@@ -64,6 +64,7 @@ function ding_deploy_drush_command() {
 
 
   $items['ding-deploy'] = array(
+    'callback' => 'drush_ding_deploy',
     'description' => "Deploy to an environment.",
     'options' => array(
       'profile-name' => 'The name of the profile.',
@@ -99,7 +100,7 @@ function ding_deploy_drush_command() {
       'working-copy' => 'Create checkouts when possible',
     ),
     'examples' => array(
-      'drush @dev ding-build /var/www/drupal-7.x/profiles/ding2' => 'Build ding in the specified dir.',
+      'drush @dev ding-build /var/www/drupal-7.x' => 'Build ding in the specified dir.',
     ),
     'aliases' => array('ddbuild'),
     'bootstrap' => DRUSH_BOOTSTRAP_DRUSH, // No bootstrap at all.
@@ -181,6 +182,8 @@ Builds the site. Mostly useful for developers, but is used internally by ding-de
       return dt("No profile name supplied.");
     case 'error:NO_PROFILE_URL':
       return dt("No profile url supplied.");
+    case 'error:PATH_EXISTS':
+      return dt("Path already exists.");
   }
 }
 
@@ -373,15 +376,18 @@ function drush_ding_deploy_build($path = NULL) {
     $path = drush_get_option('root', NULL);
   }
 
-  if (drush_get_option('clean', NULL)) {
-    $existing = $path . '/profiles/' . $profile;
-    if (file_exists($existing)) {
+  $existing = $path . '/profiles/' . $profile;
+  if (file_exists($existing)) {
+    if (drush_get_option('clean', NULL)) {
       if (drush_confirm(dt('Are you sure you want to delete @existing', array('@existing' => $existing)))) {
         $n = drush_delete_dir($existing);
       }
       else {
         return drush_user_abort();
       }
+    }
+    else {
+      return drush_set_error('PATH_EXISTS');
     }
   }
 
