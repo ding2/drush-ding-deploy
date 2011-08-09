@@ -310,7 +310,8 @@ function drush_ding_deploy_setup() {
       $options = array('--drupal-project-rename=' . $basename, 'drupal');
       $cwd = getcwd();
       drush_op('chdir', dirname($root));
-      // TODO: add in profile-core-version
+      // @todo add in profile-core-version
+      // @todo should use drush_invoke_process.
       $res = drush_backend_invoke_args('dl', $options);
       if ($res['error_status'] == 0) {
       }
@@ -408,7 +409,7 @@ function drush_ding_deploy_build($path = NULL) {
   if (drush_get_option('working-copy', FALSE)) {
     $settings['working-copy'] = TRUE;
   }
-  $res = drush_backend_invoke_sitealias($settings, 'make', array($makefile, $path), $settings);
+  $res = drush_invoke_process($settings, 'make', array($makefile, $path), $settings);
 
   if (isset($old_cwd)) {
     chdir($old_cwd);
@@ -465,14 +466,15 @@ function drush_ding_deploy() {
   if (drush_get_option('working-copy', FALSE)) {
     $settings['working-copy'] = TRUE;
   }
-  $res = drush_backend_invoke_sitealias($settings, 'ding-deploy-build', array($build_path . '/' . $build_dir), $settings);
+  $res = drush_invoke_process($settings, 'ding-deploy-build', array($build_path . '/' . $build_dir), $settings);
 
 
+  $settings = drush_get_merged_options();
   if ($res['error_status'] == 0) {
     drush_set_context('DING_DEPLOY_STAGE', 'offline');
     if (!drush_get_option('no-offline', FALSE)) {
       drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_DATABASE);
-      $res2 = drush_backend_invoke('vset site_offline 1');
+      $res2 = drush_invoke_process($settings, 'vset', array('site_offline', '1'));
       if (!$res2 || $res2['error_status'] != 0) {
         return FALSE;
       }
@@ -482,10 +484,13 @@ function drush_ding_deploy() {
     if (!drush_get_option('no-dump', FALSE)) {
       drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_DATABASE);
       drush_set_context('DING_DEPLOY_DBDUMP', $dump_file);
-      $res2 = drush_backend_invoke('sql-dump --result-file=' . $dump_file);
+      $settings['result-file'] = $dump_file;
+      $res2 = drush_invoke_process($settings, 'sql-dump');
       if (!$res2 || $res2['error_status'] != 0) {
+        drush_set_error('MAKE_FAILED');
         return FALSE;
       }
+      $settings = drush_get_merged_options();
     }
 
     $cwd = getcwd();
@@ -505,8 +510,9 @@ function drush_ding_deploy() {
     drush_set_context('DING_DEPLOY_STAGE', 'updb');
     if (!drush_get_option('no-updb', FALSE)) {
       drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_FULL);
-      $res2 = drush_backend_invoke('updb');
+      $res2 = drush_invoke_process($settings, 'updb');
       if (!$res2 || $res2['error_status'] != 0) {
+        drush_set_error('MAKE_FAILED');
         return FALSE;
       }
     }
@@ -514,10 +520,17 @@ function drush_ding_deploy() {
     drush_set_context('DING_DEPLOY_STAGE', 'post-updb');
     if (!drush_get_option('no-post-updb')) {
       drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_DATABASE);
+      // @todo support args.
       $post_updb = drush_get_option('post-updb', array());
-      foreach ($post_updb as $command) {
-        $res2 = drush_backend_invoke($command);
+      foreach ($post_updb as $command => $settings) {
+        $settings += array('args' => array(), 'options' => array());
+        $res2 = drush_invoke_process($settings, $command, $settings['args'], $settings['options']);
         if (!$res2 || $res2['error_status'] != 0) {
+          foreach ($res2['error_log'] as $log) {
+            drush_log($command . ":" . $log, 'error');
+          }
+          drush_print_r($res2);
+          drush_set_error('MAKE_FAILED');
           return FALSE;
         }
       }
@@ -525,8 +538,9 @@ function drush_ding_deploy() {
 
     drush_set_context('DING_DEPLOY_STAGE', 'online');
     if (!drush_get_option('no-offline', FALSE)) {
-      $res2 = drush_backend_invoke('vset site_offline 0');
+      $res2 = drush_invoke_process($settings, 'vset', array('site_offline', '0'));
       if (!$res2 || $res2['error_status'] != 0) {
+        drush_set_error('MAKE_FAILED');
         return FALSE;
       }
     }
@@ -566,7 +580,8 @@ function drush_ding_deploy_rollback() {
           drush_set_error('NO_DBDUMP_FILE');
         }
         else {
-          $res = drush_backend_invoke('sql-connect');
+          $settings = drush_get_merged_options();
+          $res = drush_invoke_process($settings, 'sql-connect');
           if ($res && $file) {
             $mysql = $res['output'];
             drush_op_system($mysql . ' <' . $dump_file);
@@ -594,7 +609,8 @@ function drush_ding_deploy_rollback() {
       }
     case 'offline':
       if (!drush_get_option('no-offline', FALSE)) {
-        drush_backend_invoke('vset site_offline 0');
+        $settings = drush_get_merged_options();
+        drush_invoke_process($settings, 'vset site_offline 0');
       }
     case 'init':
       // Nothing to roll back, we're golden.
@@ -620,7 +636,7 @@ function drush_ding_deploy_test() {
   drush_set_option('alias-path', $alias_dir);
   $settings = drush_sitealias_get_record('@test.basic');
   $settings['alias-path'] = $alias_dir;
-  $data = drush_backend_invoke_sitealias($settings, 'ding-deploy-setup', array(), $settings);
+  $data = drush_invoke_process($settings, 'ding-deploy-setup', array(), $settings);
 
   if (empty($data['error_status'])) {
     drush_log(dt('Basic setup works.'), 'ok');
@@ -637,7 +653,7 @@ function drush_ding_deploy_test() {
   $settings = drush_sitealias_get_record('@test.basic');
   $settings['alias-path'] = $alias_dir;
   $settings['code-only'] = TRUE;
-  $data = drush_backend_invoke_sitealias($settings, 'ding-deploy', array(), $settings);
+  $data = drush_invoke_process($settings, 'ding-deploy', array(), $settings);
 
   if (empty($data['error_status'])) {
     drush_log(dt('Basic deploy works.'), 'ok');
@@ -662,7 +678,7 @@ function drush_ding_deploy_test() {
   $settings = drush_sitealias_get_record('@test.basic2');
   $settings['alias-path'] = $alias_dir;
   $settings['code-only'] = TRUE;
-  $data = drush_backend_invoke_sitealias($settings, 'ding-deploy-build', array($test_path . '/direct'), $settings);
+  $data = drush_invoke_process($settings, 'ding-deploy-build', array($test_path . '/direct'), $settings);
 
   if (empty($data['error_status'])) {
     drush_log(dt('Basic build works.'), 'ok');
