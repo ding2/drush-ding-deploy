@@ -94,6 +94,8 @@ function ding_deploy_drush_command() {
       'profile-name' => 'Name of the profile',
       'profile-type' => 'Fetch method. Same as type in drush make files. Defaults to git',
       'profile-url' => 'The url to fetch the profile from',
+      'profile-branch' => 'Checkout branch instead of master',
+      'profile-tag' => 'Checkout specific tag',
       'working-copy' => 'Create checkouts when possible',
     ),
     'examples' => array(
@@ -355,8 +357,17 @@ function drush_ding_deploy_build($path = NULL) {
   $profile_core_version = drush_get_option('profile-core-version', NULL);
   $profile_type = drush_get_option('profile-type', 'git');
   $profile_url = drush_get_option('profile-url', NULL);
+  $profile_branch = drush_get_option('profile-branch', NULL);
+  $profile_tag = drush_get_option('profile-tag', NULL);
 
-  $makefile = drush_save_data_to_temp_file(strtr(BOOTSTRAP_MAKE, array('@core-version' => $profile_core_version, '@name' => $profile, '@type' => $profile_type, '@url' => $profile_url)));
+  $makefile_content = strtr(BOOTSTRAP_MAKE, array('@core-version' => $profile_core_version, '@name' => $profile, '@type' => $profile_type, '@url' => $profile_url));
+  if ($profile_branch) {
+    $makefile_content .= strtr('projects[@name][download][branch] = "@branch"' . "\n", array('@name' => $profile, '@branch' => $profile_branch));
+  }
+  if ($profile_tag) {
+    $makefile_content .= strtr('projects[@name][download][tag] = "@tag"' . "\n", array('@name' => $profile, '@tag' => $profile_tag));
+  }
+  $makefile = drush_save_data_to_temp_file($makefile_content);
 
   if (!$path) {
     $path = drush_get_option('root', NULL);
