@@ -491,7 +491,9 @@ function drush_ding_deploy() {
     if (file_exists($env . '-latest')) {
       drush_op('rename', $env . '-latest', $env . '-previous');
     }
-    symlink($build_dir . '/profiles/' . $profile, $env . '-latest');
+    if (!symlink($build_dir . '/profiles/' . $profile, $env . '-latest')) {
+      return FALSE;
+    }
     drush_op('chdir', $cwd);
 
     drush_set_context('DING_DEPLOY_STAGE', 'updb');
