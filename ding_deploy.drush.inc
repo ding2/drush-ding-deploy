@@ -412,6 +412,8 @@ function drush_ding_deploy_build($path = NULL) {
   if (drush_get_option('ding2-dev', FALSE)) {
     $settings['ding2-dev'] = TRUE;
   }
+  // TODO: This can quietly fail if a makefile specifies an
+  // non-existant contrib module version?
   $res = drush_invoke_process($settings, 'make', array($makefile, $path), $settings);
 
   if (isset($old_cwd)) {
