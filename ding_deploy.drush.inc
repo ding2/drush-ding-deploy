@@ -501,14 +501,23 @@ function drush_ding_deploy() {
     $cwd = getcwd();
     drush_op('chdir', $build_path);
     drush_set_context('DING_DEPLOY_STAGE', 'link-shuffle');
-    if (file_exists($env . '-previous')) {
-      drush_op('rename', $env . '-previous', $env . '-previous-bak');
-    }
-    if (file_exists($env . '-latest')) {
-      drush_op('rename', $env . '-latest', $env . '-previous');
-    }
-    if (!symlink($build_dir . '/profiles/' . $profile, $env . '-latest')) {
-      return FALSE;
+
+    // If multiple profiles was build, link in them all.
+    $contents = preg_grep('/^[^.]/', scandir($build_dir . '/profiles'));
+    foreach ($contents as $build_profile) {
+      $prefix = $env;
+      if (sizeof($contents) > 1) {
+        $prefix = $env . '-' . $build_profile;
+      }
+      if (file_exists($env . '-previous')) {
+        drush_op('rename', $prefix . '-previous', $prefix . '-previous-bak');
+      }
+      if (file_exists($env . '-latest')) {
+        drush_op('rename', $prefix . '-latest', $prefix . '-previous');
+      }
+      if (!symlink($build_dir . '/profiles/' . $build_profile, $prefix . '-latest')) {
+        return FALSE;
+      }
     }
     drush_op('chdir', $cwd);
 
