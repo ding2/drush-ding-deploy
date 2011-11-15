@@ -409,6 +409,9 @@ function drush_ding_deploy_build($path = NULL) {
   if (drush_get_option('working-copy', FALSE)) {
     $settings['working-copy'] = TRUE;
   }
+  if (drush_get_option('ding2-dev', FALSE)) {
+    $settings['ding2-dev'] = TRUE;
+  }
   $res = drush_invoke_process($settings, 'make', array($makefile, $path), $settings);
 
   if (isset($old_cwd)) {
