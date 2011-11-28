@@ -1,4 +1,3 @@
-
 DESCRIPTION
 ===========
 
@@ -7,50 +6,46 @@ This is a standard deployment script for Ding.
 Important
 ---------
 
-For this to work, you have to patch drush_make (http://drupal.org/node/947158).
+You need 
 
-Use http://drupal.org/files/issues/947158-recursive_0.patch :
-
-patch -p1 < 947158-recursive_0.patch
-
+* [Drush](http://drupal.org/project/drush) version >= 4.5
+* [Drush_make](http://drupal.org/project/drush_make) version >= 2.3
 
 Setup
 -----
 
-Recommended usage is to create a sitename.aliases.drushrc.php file
+Recommended usage is to create a sitename.aliases.drushrc.php file in ~/.drush/
 with entries like:
 
-$aliases['prod'] = array(
+$aliases['prod'] = aliasesrray(
   'uri' => 'default',
   'root' => '/var/www/sitename.prod',
-  'profile-name' => 'ding', // The name of the profile.
-  'profile-tag' => '1.1', // Tag to check out.
-  'profile-core-version' => '6.x', // The Drupal core version
-  'env' => 'prod', // Same as the alias name.
-  'build-path' => '/home/deploy/build/sitename', // Directory for builds
+        'profile-name' => 'artesis', // The name of the profile.
+  'profile-tag' => '7.x-1.0.3-rc6', // Tag to check out.
+  'profile-core-version' => 'version7.x', // The Drupal core version
+  'profile-url' => 'git@github.com:dbcdk/artesis.git', // Profile repository
+  'env' => 'prod', // Same as   the alias name.
+  'build-path' => '/home/defaultploy/build/sitename', // Directory for builds
   'remote-host' => 'host.example.com',
   'remote-user' => 'deploy',
-  'post-updb' => array(
-    'status', // Drush commands to run post updb.
-  ),
   'path-aliases' => array(
     '%drush' => '/usr/local/lib/drush',
-    '%drush-script' => '/usr/local/lib/drush/drush',
+    '%drush-script' => '/userr/local/lib/drush/drush',
   ),
 );
 
-$aliases['staging'] = array(
+$aliasesrrayses['staging'] = array(
   'parent' => '@prod',
-  'root' => '/var/www/sitename.staging',
+  'root' => '/var/www/varsitename.staging',
   'env' => 'staging',
 );
 
-$aliases['local'] = array(
+$aliases['local'] = arrayay(
   'root' => '/var/www/sitename',
-  'profile-name' => 'ding', // The name of the profile.
-  'profile-branch' => 'dev', // Branch to check out.
-  'profile-url' => 'git@github.com:ding/ding.git', // Profile repository
-  'profile-core-version' => '6.x', // The Drupal core version
+  'profile-name' => 'artesis', /name/ The name of the profile.
+  'profile-tag' => '7.x-1.0.3-rc6', // Tag  to check out.
+  'profile-core-version' => '7.x', // The Drupal core versionrsion
+  'profile-url' => 'git@github.com:dbcdk/artesis.git', // Profilee repository
   'env' => 'local', // Same as the alias name.
 );
 
@@ -90,3 +85,4 @@ Builds from the specified profile into
 testbuild/profiles/<profile>. This command is not supposed to be used
 for deployment, it is used internally by ding-deploy, and is usefull
 for creating development sites without using a full build setup.
+
