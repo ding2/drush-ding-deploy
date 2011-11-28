@@ -498,19 +498,28 @@ function drush_ding_deploy() {
     // If multiple profiles was build, link in them all.
     $contents = preg_grep('/^[^.]/', scandir($build_dir . '/profiles'));
     foreach ($contents as $build_profile) {
+
       $prefix = $env;
       if (sizeof($contents) > 1) {
         $prefix = $env . '-' . $build_profile;
       }
-      if (file_exists($env . '-previous')) {
+      if (file_exists($prefix . '-previous')) {
         drush_op('rename', $prefix . '-previous', $prefix . '-previous-bak');
       }
-      if (file_exists($env . '-latest')) {
+      if (file_exists($prefix . '-latest')) {
         drush_op('rename', $prefix . '-latest', $prefix . '-previous');
       }
-      if (!symlink($build_dir . '/profiles/' . $build_profile, $prefix . '-latest')) {
-        return FALSE;
+      symlink($build_dir . '/profiles/' . $build_profile, $prefix . '-latest');
+
+      if (!drush_get_option('no-symlink', FALSE)) {
+        $root = drush_get_option('root', NULL);
+        if (file_exists($root . '/profiles/' . $build_profile)) {
+          drush_shell_exec('rm ' . $root. '/profiles/' . $build_profile);
+        }
+        symlink($build_path . '/' . $prefix . '-latest', $root. '/profiles/' . $build_profile);
+        drush_log('Created/updated ' . $build_profile . ' profile symlinks.');
       }
+
     }
     drush_op('chdir', $cwd);
 
@@ -703,8 +712,6 @@ function drush_ding_deploy_test() {
     return;
   }
 
-  //drush_print_r($data);
-
 }
 
 function _file_check($file) {
@@ -714,3 +721,4 @@ function _file_check($file) {
   }
   return TRUE;
 }
+
