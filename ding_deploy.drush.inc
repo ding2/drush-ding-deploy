@@ -83,7 +83,20 @@ function ding_deploy_drush_command() {
     'aliases' => array('ddeploy'),
     'bootstrap' => DRUSH_BOOTSTRAP_DRUSH, // No bootstrap at all.
   );
-
+  $items['ding-deploy-revert-list'] = array(
+    'description' => 'Show list of revertable profiles.',
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH, // No bootstrap at all.
+  );
+  $items['ding-deploy-revert'] = array(
+    'description' => 'Revert a build to an earlier state.',
+    'arguments' => array(
+      'buildname' => 'The build name to revert to',
+    ),
+    'examples' => array(
+      'drush @dev ding-reploy-revert artesis-123456789' => 'Revert @dev to build artesis-123456789',
+    ),
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH, // No bootstrap at all.
+  );
   $items['ding-deploy-build'] = array(
     'description' => "Build profile.",
     'arguments' => array(
@@ -129,6 +142,10 @@ function ding_deploy_drush_help($section) {
       return dt("Install Ding Deploy on server.
 
 This will install Ding Deploy in the deployment users ~/.drush folder. Must be run locally.");
+    case 'drush:ding-deploy-revert':
+      return dt('Revert install to previous build.');
+    case 'drush:ding-deploy-revert-list':
+      return dt('Show list of previous builds.');
     case 'drush:ding-deploy-update':
       return dt("Update Ding Deploy on server.
 
@@ -223,6 +240,67 @@ function drush_ding_deploy_install() {
     return drush_set_error('INSTALL_ERROR');
   }
   drush_print("Ding Deploy installed.");
+}
+
+function drush_ding_deploy_revert_list() {
+  $rows = array(array('Buildname', 'Status', 'Profiles'));
+  $build_path = drush_get_option('build-path');
+  $profile_name = drush_get_option('profile-name');
+  $env = drush_get_option('env');
+
+  $previous_build = explode('/', readlink($build_path . '/' . $env . '-' . $profile_name . '-previous'));
+
+  $profile_folders = preg_grep('/^'.$profile_name.'-(.*)/', scandir($build_path ));
+  foreach ($profile_folders as $folder_key => $folder) {
+    $active_profiles = array();
+    $folder_files = scandir($build_path . '/' . $folder);
+    if (!in_array($profile_name . '-backup.sql', $folder_files)) {
+      unset($profile_folders[$folder_key]);
+      continue;
+    }
+    $profiles = preg_grep('/^[^.]/', scandir($build_path . '/' . $folder . '/profiles'));
+
+    foreach ($profiles as $profile) {
+      $info = _parse_info_file($build_path . '/' .$folder . '/profiles/' . $profile . '/' . $profile . '.info');
+      $active_profiles[] = $info['name'] . ' (' . $info['version'] . ')';
+    }
+    $rows[] = array(
+      $folder,
+      ($previous_build[0] == $folder ? 'Previous build' : NULL),
+      implode(', ', $active_profiles),
+    );
+  }
+  drush_print_table($rows, TRUE);
+}
+
+function drush_ding_deploy_revert($buildname = FALSE) {
+  $build_path = drush_get_option('build-path');
+  $profile_name = drush_get_option('profile-name');
+  $env = drush_get_option('env');
+  drush_print($build_path);
+  drush_print($profile_name);
+  drush_print($env);
+  drush_print($buildname);
+
+  // Dump active build database.
+  drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_DATABASE);
+  $dump_file = 'tmpdump.sql';
+  if (file_exists($dump_file)) {
+    @unlink($dump_file);
+  }
+  $settings['result-file'] = $dump_file;
+  $res2 = drush_invoke_process($settings, 'sql-dump');
+  if (!$res2 || $res2['error_status'] != 0) {
+    drush_set_error('MAKE_FAILED');
+    return FALSE;
+  }
+  // Save dump into active build folder.
+  $latest_profile_dir = explode('/', readlink($build_path . '/' . $env . '-' . $profile_name . '-latest'));
+  $latest_profile = $latest_profile_dir[0];
+  drush_op('copy', $dump_file, $build_path . '/' . $latest_profile . '/' . $profile_name . '-backup.sql');
+
+  // TODO: Change symlink to link active build profile(s) to previous.
+  // TODO: Change symlink for revert-to-build profile(s) to latest.
 }
 
 /**
@@ -488,6 +566,7 @@ function drush_ding_deploy() {
         drush_set_error('MAKE_FAILED');
         return FALSE;
       }
+
       $settings = drush_get_merged_options();
     }
 
@@ -729,5 +808,67 @@ function _file_check($file) {
     return FALSE;
   }
   return TRUE;
+}
+
+function _parse_info_file($filename) {
+  $info = array();
+  $constants = get_defined_constants();
+
+  if (!file_exists($filename)) {
+    return $info;
+  }
+
+  $data = file_get_contents($filename);
+  if (preg_match_all('
+    @^\s*                           # Start at the beginning of a line, ignoring leading whitespace
+    ((?:
+      [^=;\[\]]|                    # Key names cannot contain equal signs, semi-colons or square brackets,
+      \[[^\[\]]*\]                  # unless they are balanced and not nested
+    )+?)
+    \s*=\s*                         # Key/value pairs are separated by equal signs (ignoring white-space)
+    (?:
+      ("(?:[^"]|(?<=\\\\)")*")|     # Double-quoted string, which may contain slash-escaped quotes/slashes
+      (\'(?:[^\']|(?<=\\\\)\')*\')| # Single-quoted string, which may contain slash-escaped quotes/slashes
+      ([^\r\n]*?)                   # Non-quoted string
+    )\s*$                           # Stop at the next end of a line, ignoring trailing whitespace
+    @msx', $data, $matches, PREG_SET_ORDER)) {
+    foreach ($matches as $match) {
+      // Fetch the key and value string
+      $i = 0;
+      foreach (array('key', 'value1', 'value2', 'value3') as $var) {
+        $$var = isset($match[++$i]) ? $match[$i] : '';
+      }
+      $value = stripslashes(substr($value1, 1, -1)) . stripslashes(substr($value2, 1, -1)) . $value3;
+
+      // Parse array syntax
+      $keys = preg_split('/\]?\[/', rtrim($key, ']'));
+      $last = array_pop($keys);
+      $parent = &$info;
+
+      // Create nested arrays
+      foreach ($keys as $key) {
+        if ($key == '') {
+          $key = count($parent);
+        }
+        if (!isset($parent[$key]) || !is_array($parent[$key])) {
+          $parent[$key] = array();
+        }
+        $parent = &$parent[$key];
+      }
+
+      // Handle PHP constants.
+      if (isset($constants[$value])) {
+        $value = $constants[$value];
+      }
+
+      // Insert actual value
+      if ($last == '') {
+        $last = count($parent);
+      }
+      $parent[$last] = $value;
+    }
+  }
+
+  return $info;
 }
 
