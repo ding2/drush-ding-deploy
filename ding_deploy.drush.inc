@@ -562,12 +562,21 @@ function drush_ding_deploy() {
     }
 
     if (file_exists($dump_file)) {
+      if (!drush_get_option('no-dump', FALSE)) {
+        $latest_profile_dir = explode('/', readlink($build_path . '/' . $env . '-' . $profile . '-previous'));
+        $latest_profile = $latest_profile_dir[0];
+        drush_op('copy', $dump_file, $build_path . '/' . $latest_profile . '/' . $profile . '-backup.sql');
+      }
+
       @unlink($dump_file);
     }
 
     $cwd = getcwd();
     drush_op('chdir', $build_path);
-    @drush_op('unlink', $env . '-previous-bak');
+    $contents = preg_grep('/^[^.]/', scandir($build_dir . '/profiles'));
+    foreach ($contents as $build_profile) {
+      @drush_op('unlink', $env . '-' . $build_profile . '-previous-bak');
+    }
     drush_op('chdir', $cwd);
   }
   else {
