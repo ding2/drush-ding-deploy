@@ -491,7 +491,7 @@ function drush_ding_deploy_build($path = NULL) {
     chdir($old_cwd);
   }
 
-  if (!$res) {
+  if (!$res || $res['error_status'] != 0) {
     drush_set_error('BUILD_FAILED');
   }
 
