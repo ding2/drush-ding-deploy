@@ -23,7 +23,7 @@ $aliases['prod'] = array(
         'profile-name' => 'artesis', // The name of the profile.
   'profile-tag' => '7.x-1.0.3-rc6', // Tag to check out.
   'profile-core-version' => '7.x', // The Drupal core version
-  'profile-url' => 'git@github.com:dbcdk/artesis.git', // Profile repository
+  'profile-url' => 'git@github.com:DBCDK/artesis.git', // Profile repository
   'env' => 'prod', // Same as   the alias name.
   'build-path' => '/home/defaultploy/build/sitename', // Directory for builds
   'remote-host' => 'host.example.com',
@@ -45,7 +45,7 @@ $aliases['local'] = arrayay(
   'profile-name' => 'artesis', /name/ The name of the profile.
   'profile-tag' => '7.x-1.0.3-rc6', // Tag  to check out.
   'profile-core-version' => '7.x', // The Drupal core versionrsion
-  'profile-url' => 'git@github.com:dbcdk/artesis.git', // Profilee repository
+  'profile-url' => 'git@github.com:DBCDK/artesis.git', // Profilee repository
   'env' => 'local', // Same as the alias name.
 );
 
