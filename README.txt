@@ -17,12 +17,12 @@ Setup
 Recommended usage is to create a sitename.aliases.drushrc.php file in ~/.drush/
 with entries like:
 
-$aliases['prod'] = aliasesrray(
+$aliases['prod'] = array(
   'uri' => 'default',
   'root' => '/var/www/sitename.prod',
         'profile-name' => 'artesis', // The name of the profile.
   'profile-tag' => '7.x-1.0.3-rc6', // Tag to check out.
-  'profile-core-version' => 'version7.x', // The Drupal core version
+  'profile-core-version' => '7.x', // The Drupal core version
   'profile-url' => 'git@github.com:dbcdk/artesis.git', // Profile repository
   'env' => 'prod', // Same as   the alias name.
   'build-path' => '/home/defaultploy/build/sitename', // Directory for builds
@@ -34,7 +34,7 @@ $aliases['prod'] = aliasesrray(
   ),
 );
 
-$aliasesrrayses['staging'] = array(
+$aliases['staging'] = array(
   'parent' => '@prod',
   'root' => '/var/www/varsitename.staging',
   'env' => 'staging',
