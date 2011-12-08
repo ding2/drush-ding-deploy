@@ -30,7 +30,7 @@ $aliases['prod'] = array(
   'remote-user' => 'deploy',
   'path-aliases' => array(
     '%drush' => '/usr/local/lib/drush',
-    '%drush-script' => '/userr/local/lib/drush/drush',
+    '%drush-script' => '/usr/share/drush/drush',
   ),
 );
 
