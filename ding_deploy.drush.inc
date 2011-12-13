@@ -185,6 +185,14 @@ Builds the site. Mostly useful for developers, but is used internally by ding-de
       return dt("Build path doesn't exist.");
     case 'error:MAKE_FAILED':
       return dt("Drush make failed on bootstrap.make.");
+    case 'error:DUMP_FAILED':
+      return dt("Failed dumping database.");
+    case 'error:UBDB_FAILED':
+      return dt("Update script failed.");
+    case 'error:POST_UBDB_FAILED':
+      return dt("Post update command failed.");
+    case 'error:ONLINE_FAILED':
+      return dt("Error setting site online.");
     case 'error:BUILD_FAILED':
       return dt("Error building, there's not a symlink in the way of the profile?");
     case 'error:DRUPAL_DOWNLOAD_FAILED':
@@ -291,7 +299,7 @@ function drush_ding_deploy_revert($buildname = FALSE) {
   $settings['result-file'] = $dump_file;
   $res2 = drush_invoke_process($settings, 'sql-dump');
   if (!$res2 || $res2['error_status'] != 0) {
-    drush_set_error('MAKE_FAILED');
+    drush_set_error('DUMP_FAILED');
     return FALSE;
   }
   // Save dump into active build folder.
@@ -563,7 +571,7 @@ function drush_ding_deploy() {
       $settings['result-file'] = $dump_file;
       $res2 = drush_invoke_process($settings, 'sql-dump');
       if (!$res2 || $res2['error_status'] != 0) {
-        drush_set_error('MAKE_FAILED');
+        drush_set_error('DUMP_FAILED');
         return FALSE;
       }
 
@@ -607,7 +615,7 @@ function drush_ding_deploy() {
       drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_FULL);
       $res2 = drush_invoke_process($settings, 'updb');
       if (!$res2 || $res2['error_status'] != 0) {
-        drush_set_error('MAKE_FAILED');
+        drush_set_error('UPDB_FAILED');
         return FALSE;
       }
     }
@@ -625,7 +633,7 @@ function drush_ding_deploy() {
             drush_log($command . ":" . $log, 'error');
           }
           drush_print_r($res2);
-          drush_set_error('MAKE_FAILED');
+          drush_set_error('POST_UPDB_FAILED');
           return FALSE;
         }
       }
@@ -635,7 +643,7 @@ function drush_ding_deploy() {
     if (!drush_get_option('no-offline', FALSE)) {
       $res2 = drush_invoke_process($settings, 'vset', array('site_offline', '0'));
       if (!$res2 || $res2['error_status'] != 0) {
-        drush_set_error('MAKE_FAILED');
+        drush_set_error('ONLINE_FAILED');
         return FALSE;
       }
     }
