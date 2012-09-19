@@ -22,30 +22,30 @@ $aliases['prod'] = array(
   'root' => '/var/www/sitename.prod',
         'profile-name' => 'artesis', // The name of the profile.
   'profile-tag' => '7.x-1.0.3-rc6', // Tag to check out.
-  'profile-core-version' => '7.x', // The Drupal core version
-  'profile-url' => 'git@github.com:DBCDK/artesis.git', // Profile repository
-  'env' => 'prod', // Same as   the alias name.
-  'build-path' => '/home/defaultploy/build/sitename', // Directory for builds
+  'profile-core-version' => '7.x', // The Drupal core version.
+  'profile-url' => 'git@github.com:DBCDK/artesis.git', // Profile repository.
+  'env' => 'prod', // Same as the alias name.
+  'build-path' => '/home/defaultploy/build/sitename', // Directory for builds.
   'remote-host' => 'host.example.com',
   'remote-user' => 'deploy',
   'path-aliases' => array(
     '%drush' => '/usr/local/lib/drush',
-    '%drush-script' => '/userr/local/lib/drush/drush',
+    '%drush-script' => '/usr/share/drush/drush',
   ),
 );
 
 $aliases['staging'] = array(
   'parent' => '@prod',
-  'root' => '/var/www/varsitename.staging',
+  'root' => '/var/www/sitename.staging',
   'env' => 'staging',
 );
 
-$aliases['local'] = arrayay(
+$aliases['local'] = array(
   'root' => '/var/www/sitename',
-  'profile-name' => 'artesis', /name/ The name of the profile.
+  'profile-name' => 'artesis', // The name of the profile.
   'profile-tag' => '7.x-1.0.3-rc6', // Tag  to check out.
-  'profile-core-version' => '7.x', // The Drupal core versionrsion
-  'profile-url' => 'git@github.com:DBCDK/artesis.git', // Profilee repository
+  'profile-core-version' => '7.x', // The Drupal core version.
+  'profile-url' => 'git@github.com:DBCDK/artesis.git', // Profile repository.
   'env' => 'local', // Same as the alias name.
 );
 
